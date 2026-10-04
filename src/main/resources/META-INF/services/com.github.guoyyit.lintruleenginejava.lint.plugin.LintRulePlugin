@@ -1,0 +1,5 @@
+com.github.guoyyit.lintruleenginejava.lint.builtin.NoTodoPlugin
+com.github.guoyyit.lintruleenginejava.lint.builtin.TrailingWhitespacePlugin
+com.github.guoyyit.lintruleenginejava.lint.builtin.LongLinePlugin
+com.github.guoyyit.lintruleenginejava.lint.builtin.NoTabIndentPlugin
+com.github.guoyyit.lintruleenginejava.lint.builtin.FinalNewlinePlugin
