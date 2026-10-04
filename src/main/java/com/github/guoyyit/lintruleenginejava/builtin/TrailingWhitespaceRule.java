@@ -52,16 +52,30 @@ public final class TrailingWhitespaceRule implements Rule {
             while (end > start && (content.charAt(end - 1) == '\n' || content.charAt(end - 1) == '\r')) {
                 end--;
             }
-            int p = end;
+            // A trailing comment cannot itself be "trailing whitespace":
+            // inspect only the code before the first // or # comment marker.
+            int comment = firstComment(content, start, end);
+            int scanEnd = comment >= 0 ? comment : end;
+            int p = scanEnd;
             while (p > start && (content.charAt(p - 1) == ' ' || content.charAt(p - 1) == '\t')) {
                 p--;
             }
-            if (p < end) {
+            if (p < scanEnd) {
                 int column = p - start + 1;
                 ctx.report(ID, line, column, Severity.WARNING,
-                        "trailing whitespace (" + (end - p) + " character(s))",
-                        new Fix(p, end, ""));
+                        "trailing whitespace (" + (scanEnd - p) + " character(s))",
+                        new Fix(p, scanEnd, ""));
             }
         }
+    }
+
+    private static int firstComment(String content, int from, int to) {
+        for (int i = from; i + 1 < to; i++) {
+            char c = content.charAt(i);
+            if (c == '#' || (c == '/' && content.charAt(i + 1) == '/')) {
+                return i;
+            }
+        }
+        return -1;
     }
 }

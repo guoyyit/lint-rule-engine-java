@@ -191,14 +191,19 @@ public final class PluginLoader {
             descriptor = new PluginDescriptor("<unknown>", source);
         }
         return new PluginLoadFailure(descriptor, reason,
-                t == null ? null : t.getClass().getName());
+                t == null ? null : rootCause(t).getClass().getName());
     }
 
-    private static String rootMessage(Throwable t) {
+    private static Throwable rootCause(Throwable t) {
         Throwable cur = t;
         while (cur.getCause() != null && cur.getCause() != cur) {
             cur = cur.getCause();
         }
+        return cur;
+    }
+
+    private static String rootMessage(Throwable t) {
+        Throwable cur = rootCause(t);
         return cur.getClass().getSimpleName()
                 + (cur.getMessage() != null ? ": " + cur.getMessage() : "");
     }

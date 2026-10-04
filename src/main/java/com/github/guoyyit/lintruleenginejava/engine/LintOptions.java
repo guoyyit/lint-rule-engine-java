@@ -38,4 +38,9 @@ public record LintOptions(
                 policy == null ? FixPolicy.HIGHEST_RULE_ID : policy,
                 cache, cacheMaxEntries);
     }
+
+    public LintOptions withCache(LintCache cache) {
+        return new LintOptions(parallelism, perFileTimeoutMillis, fixPolicy,
+                cache == null ? new DefaultLintCache() : cache, cacheMaxEntries);
+    }
 }

@@ -128,30 +128,18 @@ public final class LintEngine {
                         checkFile(file, incremental, globalToken, fileToken)));
             }
             for (int i = 0; i < futures.size(); i++) {
-                FileOutcome outcome;
-                try {
-                    outcome = futures.get(i).get(options.perFileTimeoutMillis(), TimeUnit.MILLISECONDS);
-                } catch (TimeoutException e) {
-                    futures.get(i).cancel(true);
-                    fileTokens.get(i).cancel();
-                    outcome = FileOutcome.failed(files.get(i),
-                            "per-file check timed out after "
-                                    + options.perFileTimeoutMillis() + " ms",
-                            TimeoutException.class.getName());
-                } catch (ExecutionException e) {
-                    Throwable cause = e.getCause() == null ? e : e.getCause();
-                    outcome = FileOutcome.failed(files.get(i),
-                            "unexpected check error: " + cause.getMessage(),
-                            cause.getClass().getName());
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    globalToken.cancel();
-                    for (Future<FileOutcome> f : futures) {
-                        f.cancel(true);
+                if (globalToken.isCancelled()) {
+                    // Stop waiting on anything still running and mark the rest.
+                    for (int j = i; j < futures.size(); j++) {
+                        futures.get(j).cancel(true);
+                        fileTokens.get(j).cancel();
+                        outcomes.add(FileOutcome.failed(files.get(j),
+                                "check cancelled", "cancellation"));
                     }
-                    outcome = FileOutcome.failed(files.get(i), "engine interrupted",
-                            InterruptedException.class.getName());
+                    break;
                 }
+                FileOutcome outcome = awaitFile(futures.get(i), files.get(i),
+                        globalToken, fileTokens.get(i), futures);
                 outcomes.add(outcome);
             }
         } finally {
@@ -219,6 +207,57 @@ public final class LintEngine {
     }
 
     // ------------------------------------------------------------------
+    // Per-file future waiting with timeout and cooperative cancellation
+    // ------------------------------------------------------------------
+
+    private FileOutcome awaitFile(Future<FileOutcome> future, Path file,
+                                  CancellationToken globalToken,
+                                  CancellationToken fileToken,
+                                  List<Future<FileOutcome>> all) {
+        long deadline = System.currentTimeMillis() + options.perFileTimeoutMillis();
+        try {
+            while (true) {
+                if (globalToken.isCancelled() || Thread.currentThread().isInterrupted()) {
+                    cancelAll(all);
+                    fileToken.cancel();
+                    return FileOutcome.failed(file, "check cancelled", "cancellation");
+                }
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    future.cancel(true);
+                    fileToken.cancel();
+                    return FileOutcome.failed(file,
+                            "per-file check timed out after "
+                                    + options.perFileTimeoutMillis() + " ms",
+                            TimeoutException.class.getName());
+                }
+                try {
+                    return future.get(Math.min(100L, remaining), TimeUnit.MILLISECONDS);
+                } catch (TimeoutException poll) {
+                    // Re-check cancellation/deadline on the next iteration.
+                }
+            }
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            return FileOutcome.failed(file,
+                    "unexpected check error: " + cause.getMessage(),
+                    cause.getClass().getName());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            globalToken.cancel();
+            cancelAll(all);
+            return FileOutcome.failed(file, "engine interrupted",
+                    InterruptedException.class.getName());
+        }
+    }
+
+    private static void cancelAll(List<Future<FileOutcome>> futures) {
+        for (Future<FileOutcome> f : futures) {
+            f.cancel(true);
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Per-file analysis
     // ------------------------------------------------------------------
 
@@ -248,7 +287,10 @@ public final class LintEngine {
                             new ArrayList<>(cached.get().diagnostics()), 0);
                 }
             }
-        } else {
+        } else if (hash.equals(lastHashes.get(relativeFile))) {
+            // Full runs reuse cache too, but only when this exact file produced
+            // this exact hash during a previous run of this engine: that rules
+            // out stale hits for content that coincidentally reappears.
             Optional<FileResult> cached = options.cache().get(key);
             if (cached.isPresent()) {
                 return FileOutcome.cached(relativeFile, hash, content,
