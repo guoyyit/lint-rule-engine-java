@@ -22,4 +22,11 @@ public interface PluginRegistry {
 
     /** Names of successfully loaded plugins, sorted. */
     List<String> loadedPluginNames();
+
+    /**
+     * Stable fingerprint of the active rule set. Any change to rule
+     * identities, severities, scope globs or fix capability changes it,
+     * which invalidates cached file results.
+     */
+    String rulesFingerprint();
 }

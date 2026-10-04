@@ -21,7 +21,7 @@ public record LintReport(
 ) {
 
     public boolean clean() {
-        // skeleton
-        return false;
+        return diagnostics.isEmpty() && failures.isEmpty()
+                && pluginFailures.isEmpty() && configProblems.isEmpty() && !cancelled;
     }
 }

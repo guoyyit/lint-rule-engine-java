@@ -13,18 +13,29 @@ public record LintOptions(
         int cacheMaxEntries
 ) {
 
+    public static final int DEFAULT_PARALLELISM = 4;
+    public static final long DEFAULT_TIMEOUT_MILLIS = 30_000L;
+
     public static LintOptions defaults() {
-        // skeleton
-        return null;
+        return new LintOptions(DEFAULT_PARALLELISM, DEFAULT_TIMEOUT_MILLIS,
+                FixPolicy.HIGHEST_RULE_ID, new DefaultLintCache(),
+                DefaultLintCache.DEFAULT_MAX_ENTRIES);
     }
 
     public LintOptions withParallelism(int parallelism) {
-        // skeleton
-        return null;
+        return new LintOptions(parallelism < 1 ? 1 : parallelism,
+                perFileTimeoutMillis, fixPolicy, cache, cacheMaxEntries);
     }
 
     public LintOptions withTimeoutMillis(long timeoutMillis) {
-        // skeleton
-        return null;
+        return new LintOptions(parallelism,
+                timeoutMillis <= 0 ? Long.MAX_VALUE : timeoutMillis,
+                fixPolicy, cache, cacheMaxEntries);
+    }
+
+    public LintOptions withFixPolicy(FixPolicy policy) {
+        return new LintOptions(parallelism, perFileTimeoutMillis,
+                policy == null ? FixPolicy.HIGHEST_RULE_ID : policy,
+                cache, cacheMaxEntries);
     }
 }

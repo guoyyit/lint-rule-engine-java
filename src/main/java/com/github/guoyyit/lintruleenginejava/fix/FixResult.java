@@ -29,9 +29,16 @@ public record FixResult(
     public record FixConflict(Fix winner, RuleId winnerRule, List<RuleId> rejectedRules, String reason) {
     }
 
-    /** Diagnostics whose fix could not be applied. */
+    /** Diagnostics carrying a fix whose fix could not be applied. */
     public List<Diagnostic> unapplied(List<Diagnostic> all) {
-        // skeleton
-        return List.of();
+        java.util.Set<Fix> appliedFixSet = appliedFixes().stream()
+                .map(af -> af.fix())
+                .collect(java.util.stream.Collectors.toSet());
+        if (all == null) {
+            return List.of();
+        }
+        return all.stream()
+                .filter(d -> d.fix() != null && !appliedFixSet.contains(d.fix()))
+                .toList();
     }
 }

@@ -12,13 +12,11 @@ public final class BuiltinPlugin implements LintPlugin {
 
     @Override
     public String name() {
-        // skeleton
-        return null;
+        return NAME;
     }
 
     @Override
     public List<Rule> rules() {
-        // skeleton
-        return List.of();
+        return List.of(new TrailingWhitespaceRule(), new NoTodoRule());
     }
 }
